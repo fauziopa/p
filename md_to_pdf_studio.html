@@ -1,0 +1,1265 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MD to PDF Studio — Konverter Markdown, Kode & LaTeX ke PDF</title>
+
+  <!-- Google Fonts: Plus Jakarta Sans, Inter, Merriweather (Serif Akademik), & JetBrains Mono -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:ital,wght@0,400;0,500;0,600;1,400&family=Merriweather:ital,wght@0,400;0,700;1,400&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- KaTeX CSS & JS for razor-sharp Math & Chemistry Rendering -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+
+  <!-- Highlight.js Light Print-Friendly Theme & Core Bundle -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/styles/github.min.css" />
+  <script src="https://cdn.jsdelivr.net/npm/highlight.js@11.9.0/lib/common.min.js"></script>
+
+  <!-- Marked.js for GFM Markdown Parsing -->
+  <script src="https://cdn.jsdelivr.net/npm/marked@12.0.2/marked.min.js"></script>
+
+  <!-- html2pdf.js for Direct High-DPI PDF Download -->
+  <script src="https://cdn.jsdelivr.net/npm/html2pdf.js@0.10.1/dist/html2pdf.bundle.min.js"></script>
+
+  <!-- Dynamic @page print rule updated via JavaScript -->
+  <style id="dynamic-page-style">
+    @page {
+      size: A4 portrait;
+      margin: 20mm;
+    }
+  </style>
+
+  <style>
+    :root {
+      --primary-start: #2563eb;
+      --primary-end: #0284c7;
+      --bg-surface: #f8fafc;
+      --paper-width: 210mm;
+      --paper-min-height: 297mm;
+      --paper-padding: 20mm;
+      --doc-font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      --doc-font-size: 11pt;
+      --doc-text-align: left;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+      background-color: var(--bg-surface);
+      color: #0f172a;
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+
+    /* Custom subtle scrollbars */
+    ::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+
+    /* zianxy Primary Gradient Button */
+    .btn-gradient {
+      background: linear-gradient(135deg, var(--primary-start) 0%, var(--primary-end) 100%);
+      color: #ffffff;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      box-shadow: 0 4px 14px -2px rgba(37, 99, 235, 0.35);
+    }
+    .btn-gradient:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 20px -2px rgba(37, 99, 235, 0.45);
+      filter: brightness(1.04);
+    }
+    .btn-gradient:active {
+      transform: translateY(0);
+    }
+
+    /* Editor Textarea Styling */
+    #markdown-input {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 13.5px;
+      line-height: 1.65;
+      tab-size: 2;
+      resize: none;
+    }
+
+    /* Drag-and-drop overlay indicator */
+    .drag-active {
+      outline: 2.5px dashed #2563eb !important;
+      outline-offset: -6px;
+      background-color: #eff6ff !important;
+    }
+
+    /* ==========================================================================
+       REAL PAPER SHEET PREVIEW STYLING (Screen + PDF Consistency)
+       ========================================================================== */
+    #paper-sheet {
+      width: var(--paper-width);
+      min-height: var(--paper-min-height);
+      padding: var(--paper-padding);
+      background-color: #ffffff;
+      color: #1e293b;
+      font-family: var(--doc-font-family);
+      font-size: var(--doc-font-size);
+      line-height: 1.65;
+      text-align: var(--doc-text-align);
+      box-shadow: 0 12px 36px -8px rgba(15, 23, 42, 0.12), 0 2px 8px -2px rgba(15, 23, 42, 0.06);
+      border: 1px solid #e2e8f0;
+      border-radius: 4px;
+      margin: 0 auto;
+      transition: width 0.25s ease, padding 0.25s ease, font-size 0.2s ease;
+      word-wrap: break-word;
+      overflow-wrap: break-word;
+    }
+
+    /* Document Typography Hierarchy */
+    #paper-sheet h1 {
+      font-size: 1.75em;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 0;
+      margin-bottom: 0.65em;
+      padding-bottom: 0.35em;
+      border-bottom: 2px solid #2563eb;
+      line-height: 1.25;
+      text-align: left;
+    }
+
+    #paper-sheet h2 {
+      font-size: 1.38em;
+      font-weight: 700;
+      color: #0f172a;
+      margin-top: 1.45em;
+      margin-bottom: 0.55em;
+      padding-bottom: 0.25em;
+      border-bottom: 1px solid #cbd5e1;
+      line-height: 1.3;
+      text-align: left;
+    }
+
+    #paper-sheet h3 {
+      font-size: 1.16em;
+      font-weight: 700;
+      color: #1e3a8a;
+      margin-top: 1.2em;
+      margin-bottom: 0.45em;
+      line-height: 1.35;
+      text-align: left;
+    }
+
+    #paper-sheet h4 {
+      font-size: 1.04em;
+      font-weight: 700;
+      color: #334155;
+      margin-top: 1em;
+      margin-bottom: 0.35em;
+      text-align: left;
+    }
+
+    #paper-sheet p {
+      margin-top: 0;
+      margin-bottom: 0.75em;
+    }
+
+    #paper-sheet a {
+      color: #2563eb;
+      text-decoration: underline;
+    }
+
+    /* Lists & Nested Lists */
+    #paper-sheet ul,
+    #paper-sheet ol {
+      margin-top: 0.25em;
+      margin-bottom: 0.85em;
+      padding-left: 1.65em;
+    }
+
+    #paper-sheet ul {
+      list-style-type: disc;
+    }
+
+    #paper-sheet ul ul {
+      list-style-type: circle;
+      margin-top: 0.25em;
+      margin-bottom: 0.25em;
+    }
+
+    #paper-sheet ul ul ul {
+      list-style-type: square;
+    }
+
+    #paper-sheet ol {
+      list-style-type: decimal;
+    }
+
+    #paper-sheet li {
+      margin-bottom: 0.35em;
+    }
+
+    #paper-sheet li > p {
+      margin-bottom: 0.35em;
+    }
+
+    /* Blockquotes */
+    #paper-sheet blockquote {
+      margin: 0.9em 0;
+      padding: 0.75em 1.05em;
+      background-color: #f8fafc;
+      border-left: 4px solid #2563eb;
+      border-radius: 0 10px 10px 0;
+      color: #334155;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    #paper-sheet blockquote p:last-child {
+      margin-bottom: 0;
+    }
+
+    /* Horizontal Rule */
+    #paper-sheet hr {
+      border: 0;
+      border-top: 1px solid #cbd5e1;
+      margin: 1.4em 0;
+    }
+
+    /* GFM Tables with clean borders & multi-page header repeat */
+    #paper-sheet table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 1em 0 1.2em 0;
+      font-size: 0.92em;
+      text-align: left;
+    }
+
+    #paper-sheet thead {
+      display: table-header-group;
+    }
+
+    #paper-sheet tr {
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    #paper-sheet th {
+      background-color: #eff6ff;
+      color: #1e3a8a;
+      font-weight: 700;
+      border: 1px solid #bfdbfe;
+      padding: 0.55em 0.75em;
+      vertical-align: top;
+    }
+
+    #paper-sheet td {
+      border: 1px solid #cbd5e1;
+      padding: 0.5em 0.75em;
+      vertical-align: top;
+      color: #1e293b;
+    }
+
+    #paper-sheet tbody tr:nth-child(even) {
+      background-color: #f8fafc;
+    }
+
+    /* Inline Code */
+    #paper-sheet :not(pre) > code {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.87em;
+      background-color: #f1f5f9;
+      color: #0f172a;
+      border: 1px solid #e2e8f0;
+      padding: 0.12em 0.4em;
+      border-radius: 5px;
+    }
+
+    /* Fenced Code Blocks — Guaranteed readable & wrapped without horizontal clipping in PDF */
+    #paper-sheet .code-block-wrapper {
+      margin: 0.95em 0;
+      border: 1px solid #cbd5e1;
+      border-radius: 10px;
+      overflow: hidden;
+      background-color: #f8fafc;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    #paper-sheet .code-block-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.35em 0.85em;
+      background-color: #e2e8f0;
+      border-bottom: 1px solid #cbd5e1;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75em;
+      font-weight: 600;
+      color: #334155;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    #paper-sheet pre {
+      margin: 0;
+      padding: 0.85em 1em;
+      background-color: #f8fafc !important;
+      overflow-x: visible;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+
+    #paper-sheet pre code {
+      font-family: 'JetBrains Mono', monospace !important;
+      font-size: 0.84em !important;
+      line-height: 1.55 !important;
+      background: transparent !important;
+      padding: 0 !important;
+      white-space: pre-wrap !important;
+      word-break: break-word !important;
+      color: #0f172a;
+    }
+
+    /* KaTeX Math & Chemistry Display Polish */
+    .katex {
+      font-size: 1.04em;
+    }
+
+    .katex-block {
+      margin: 0.85em 0;
+      padding: 0.5em 0.75em;
+      text-align: center;
+      overflow-x: auto;
+      break-inside: avoid;
+      page-break-inside: avoid;
+    }
+
+    /* Images inside Markdown */
+    #paper-sheet img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 8px;
+      margin: 0.75em 0;
+    }
+
+    /* ==========================================================================
+       DEDICATED @MEDIA PRINT STYLESHEET FOR VECTOR PDF EXPORT
+       ========================================================================== */
+    @media print {
+      html, body {
+        background: #ffffff !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        height: auto !important;
+        overflow: visible !important;
+        -webkit-print-color-adjust: exact !important;
+        print-color-adjust: exact !important;
+      }
+
+      /* Hide all UI chrome */
+      #app-header,
+      #settings-bar,
+      #mobile-tabs,
+      #editor-pane,
+      #preview-toolbar,
+      #toast-container {
+        display: none !important;
+      }
+
+      #workspace,
+      #preview-pane,
+      #paper-scroll-container {
+        display: block !important;
+        width: 100% !important;
+        max-width: none !important;
+        height: auto !important;
+        max-height: none !important;
+        overflow: visible !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        background: #ffffff !important;
+        border: none !important;
+      }
+
+      /* @page handles the physical PDF margins, so reset #paper-sheet box & padding */
+      #paper-sheet {
+        width: 100% !important;
+        min-height: auto !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        border: none !important;
+        box-shadow: none !important;
+        border-radius: 0 !important;
+      }
+
+      #paper-sheet h1,
+      #paper-sheet h2,
+      #paper-sheet h3,
+      #paper-sheet h4 {
+        break-after: avoid;
+        page-break-after: avoid;
+      }
+
+      #paper-sheet tr,
+      #paper-sheet blockquote,
+      #paper-sheet .code-block-wrapper,
+      #paper-sheet .katex-block {
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+    }
+  </style>
+</head>
+<body class="min-h-screen flex flex-col bg-slate-50 text-slate-900">
+
+  <!-- Hidden File Input for .md / .markdown / .txt -->
+  <input type="file" id="file-input" accept=".md,.markdown,.txt,text/markdown,text/plain" class="hidden" />
+
+  <!-- ========================================================================
+       TOP HEADER BAR
+       ======================================================================== -->
+  <header id="app-header" class="sticky top-0 z-30 bg-white/95 backdrop-blur border-b border-slate-200/90 shadow-xs">
+    <div class="max-w-[1600px] mx-auto px-4 sm:px-6 py-3 flex flex-wrap items-center justify-between gap-3">
+      <!-- Brand Identity -->
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-md" style="background: linear-gradient(135deg, #2563eb 0%, #0284c7 100%);">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+            <polyline points="14 2 14 8 20 8"/>
+            <path d="M9 15v-4l2 2 2-2v4"/>
+          </svg>
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-base sm:text-lg font-extrabold tracking-tight text-slate-900">MD to PDF Studio</h1>
+            <span class="hidden sm:inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+              LaTeX &amp; Code Ready
+            </span>
+          </div>
+          <p class="text-xs text-slate-500 truncate max-w-[230px] sm:max-w-xs" id="active-filename-label">
+            File aktif: <span class="font-semibold text-slate-700">contoh-kimia-kode.md</span>
+          </p>
+        </div>
+      </div>
+
+      <!-- Primary & Secondary Action Buttons -->
+      <div class="flex flex-wrap items-center gap-2">
+        <!-- Upload .MD Button -->
+        <button type="button" id="btn-upload" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-white text-slate-700 border border-slate-300 hover:bg-slate-50 hover:border-blue-400 hover:text-blue-700 transition cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-blue-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="17 8 12 3 7 8"/>
+            <line x1="12" y1="3" x2="12" y2="15"/>
+          </svg>
+          <span>Buka File .MD</span>
+        </button>
+
+        <!-- Load Sample Button -->
+        <button type="button" id="btn-sample" class="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-slate-100 text-slate-700 hover:bg-slate-200/80 transition cursor-pointer" title="Muat ulang contoh dokumen Kimia & Kode">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4 text-sky-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 2v4"/><path d="m16.2 7.8 2.9-2.9"/><path d="M18 12h4"/><path d="m16.2 16.2 2.9 2.9"/><path d="M12 18v4"/><path d="m4.9 19.1 2.9-2.9"/><path d="M2 12h4"/><path d="m4.9 4.9 2.9 2.9"/>
+          </svg>
+          <span class="hidden md:inline">Muat Contoh (Kimia &amp; Kode)</span>
+          <span class="md:hidden">Contoh</span>
+        </button>
+
+        <!-- Secondary PDF Export: Direct .PDF Download via html2pdf.js -->
+        <button type="button" id="btn-download-pdf" class="inline-flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          <span id="btn-download-text">Unduh .PDF Langsung</span>
+        </button>
+
+        <!-- Primary PDF Export: Crisp Vector PDF via window.print() -->
+        <button type="button" id="btn-print-pdf" class="btn-gradient inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"/>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/>
+            <rect x="6" y="14" width="12" height="8"/>
+          </svg>
+          <span>Simpan / Cetak PDF (Vector Tajam)</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ========================================================================
+       DOCUMENT & PDF SETTINGS BAR
+       ======================================================================== -->
+  <section id="settings-bar" class="bg-white border-b border-slate-200 px-4 sm:px-6 py-2.5">
+    <div class="max-w-[1600px] mx-auto flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex flex-wrap items-center gap-2.5 sm:gap-4">
+        <!-- Paper Size -->
+        <label class="inline-flex items-center gap-1.5 text-slate-600 font-medium">
+          <span>Kertas:</span>
+          <select id="opt-paper-size" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-blue-500">
+            <option value="A4" selected>A4 (210 × 297 mm)</option>
+            <option value="Letter">Letter (216 × 279 mm)</option>
+          </select>
+        </label>
+
+        <!-- Orientation -->
+        <label class="inline-flex items-center gap-1.5 text-slate-600 font-medium">
+          <span>Orientasi:</span>
+          <select id="opt-orientation" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-blue-500">
+            <option value="portrait" selected>Portrait (Tegak)</option>
+            <option value="landscape">Landscape (Mendatar)</option>
+          </select>
+        </label>
+
+        <!-- Margin -->
+        <label class="inline-flex items-center gap-1.5 text-slate-600 font-medium">
+          <span>Margin:</span>
+          <select id="opt-margin" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-blue-500">
+            <option value="20" selected>Normal (20 mm)</option>
+            <option value="12">Rapat (12 mm)</option>
+            <option value="25">Lebar (25 mm)</option>
+          </select>
+        </label>
+
+        <!-- Font Family -->
+        <label class="inline-flex items-center gap-1.5 text-slate-600 font-medium">
+          <span>Font:</span>
+          <select id="opt-font-family" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-blue-500">
+            <option value="sans" selected>Sans-Serif Modern</option>
+            <option value="serif">Serif Akademik</option>
+          </select>
+        </label>
+
+        <!-- Font Size -->
+        <label class="inline-flex items-center gap-1.5 text-slate-600 font-medium">
+          <span>Ukuran:</span>
+          <select id="opt-font-size" class="rounded-lg border border-slate-300 bg-slate-50 px-2.5 py-1.5 text-slate-800 font-semibold focus:outline-none focus:border-blue-500">
+            <option value="10pt">10 pt</option>
+            <option value="11pt" selected>11 pt</option>
+            <option value="12pt">12 pt</option>
+          </select>
+        </label>
+
+        <!-- Alignment Toggle -->
+        <div class="inline-flex items-center rounded-lg border border-slate-300 bg-slate-50 p-0.5" role="group" aria-label="Perataan Teks">
+          <button type="button" id="btn-align-left" class="px-2.5 py-1 rounded-md font-semibold bg-white text-blue-700 shadow-2xs transition cursor-pointer">
+            Rata Kiri
+          </button>
+          <button type="button" id="btn-align-justify" class="px-2.5 py-1 rounded-md font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer">
+            Rata Kanan-Kiri
+          </button>
+        </div>
+      </div>
+
+      <!-- Helper Tip -->
+      <div class="hidden xl:flex items-center gap-1.5 text-slate-500">
+        <span class="inline-block w-2 h-2 rounded-full bg-emerald-500"></span>
+        <span>Tip: Tarik &amp; lepas file <code class="px-1 py-0.5 bg-slate-100 rounded text-slate-700">.md</code> langsung ke area editor.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- ========================================================================
+       MOBILE VIEW SWITCHER TABS (Visible below lg breakpoint)
+       ======================================================================== -->
+  <div id="mobile-tabs" class="lg:hidden bg-white border-b border-slate-200 px-4 py-2 flex gap-2">
+    <button type="button" id="tab-editor" class="flex-1 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-xs transition cursor-pointer">
+      Editor Markdown
+    </button>
+    <button type="button" id="tab-preview" class="flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer">
+      Pratinjau Kertas (PDF)
+    </button>
+  </div>
+
+  <!-- ========================================================================
+       MAIN SPLIT WORKSPACE (Editor Left + Paper Preview Right)
+       ======================================================================== -->
+  <main id="workspace" class="flex-1 max-w-[1600px] w-full mx-auto grid grid-cols-1 lg:grid-cols-12 gap-4 p-3 sm:p-4 lg:h-[calc(100vh-118px)]">
+
+    <!-- LEFT PANE: RAW MARKDOWN EDITOR -->
+    <section id="editor-pane" class="lg:col-span-5 flex flex-col bg-white rounded-2xl border border-slate-200/90 shadow-xs overflow-hidden min-h-[65vh] lg:min-h-0">
+      <!-- Editor Pane Header -->
+      <div class="px-4 py-2.5 bg-slate-50/80 border-b border-slate-200 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-blue-600"></span>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Editor Markdown</h2>
+        </div>
+        <button type="button" id="btn-clear" class="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold text-rose-600 hover:bg-rose-50 transition cursor-pointer">
+          <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          <span>Bersihkan</span>
+        </button>
+      </div>
+
+      <!-- Textarea Input -->
+      <div id="drop-zone" class="relative flex-1 flex flex-col">
+        <textarea
+          id="markdown-input"
+          class="w-full flex-1 p-4 text-slate-800 bg-white focus:outline-none"
+          placeholder="Tempel kode Markdown (.md) di sini, atau tarik &amp; lepas file .md dari perangkat Anda..."
+          spellcheck="false"
+        ></textarea>
+      </div>
+
+      <!-- Live Stats Footer -->
+      <div class="px-4 py-2 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px] font-medium text-slate-500">
+        <div class="flex flex-wrap items-center gap-3">
+          <span>Karakter: <strong id="stat-chars" class="text-slate-800">0</strong></span>
+          <span>Kata: <strong id="stat-words" class="text-slate-800">0</strong></span>
+          <span>Rumus LaTeX: <strong id="stat-math" class="text-blue-700">0</strong></span>
+          <span>Tabel: <strong id="stat-tables" class="text-slate-800">0</strong></span>
+          <span>Blok Kode: <strong id="stat-code" class="text-slate-800">0</strong></span>
+        </div>
+        <span class="text-emerald-600 font-semibold">Auto-Render Aktif</span>
+      </div>
+    </section>
+
+    <!-- RIGHT PANE: LIVE PAPER PREVIEW -->
+    <section id="preview-pane" class="hidden lg:flex lg:col-span-7 flex-col bg-slate-200/70 rounded-2xl border border-slate-300/80 overflow-hidden min-h-[70vh] lg:min-h-0">
+      <!-- Preview Pane Header -->
+      <div id="preview-toolbar" class="px-4 py-2.5 bg-white border-b border-slate-200 flex items-center justify-between gap-2">
+        <div class="flex items-center gap-2">
+          <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
+          <h2 class="text-xs font-bold uppercase tracking-wider text-slate-700">Pratinjau Dokumen PDF</h2>
+        </div>
+        <span id="paper-badge" class="text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+          A4 • Portrait • Margin 20mm
+        </span>
+      </div>
+
+      <!-- Scrollable Paper Canvas -->
+      <div id="paper-scroll-container" class="flex-1 overflow-auto p-4 sm:p-6 lg:p-8">
+        <article id="paper-sheet" aria-label="Pratinjau Dokumen PDF"></article>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Non-blocking Toast Notification Container -->
+  <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- ========================================================================
+       APPLICATION LOGIC (Markdown + LaTeX + Syntax Highlighting + PDF Export)
+       ======================================================================== -->
+  <script>
+    (function () {
+      'use strict';
+
+      // ----------------------------------------------------------------------
+      // 1. SAMPLE MARKDOWN CONTENT (Kimia Elektrolisis, Tabel, & Blok Kode)
+      // ----------------------------------------------------------------------
+      const SAMPLE_MARKDOWN = [
+        '# LEMBAR KERJA & DOKUMENTASI TEKNIS — SEL ELEKTROLISIS & SIMULASI FARADAY',
+        '',
+        'Mata Pelajaran / Bidang : Kimia Fisika & Komputasi Sains  ',
+        'Kode Dokumen : `@zianxy/MD-PDF/2026`',
+        '',
+        '## 1. Prinsip Kerja Sel Elektrolisis',
+        '',
+        'Sel elektrolisis mengubah **energi listrik** menjadi **energi kimia** melalui reaksi redoks tidak spontan ($\\Delta G > 0$, $E^\\circ_{\\text{sel}} < 0$). Pada sel elektrolisis berlaku kaidah **KNAP**:',
+        '',
+        '* **Katode (–)**: Dihubungkan dengan kutub negatif sumber arus searah (DC), menjadi tempat terjadinya **reaksi reduksi** (penangkapan elektron).',
+        '* **Anode (+)**: Dihubungkan dengan kutub positif sumber arus searah (DC), menjadi tempat terjadinya **reaksi oksidasi** (pelepasan elektron).',
+        '',
+        '> **Catatan Penting Penyepuhan Logam:**  ',
+        '> Pada penyepuhan sendok besi ($\\text{Fe}$) dengan logam perak ($\\text{Ag}$) dalam larutan $\\text{AgNO}_3$, ionisasi berlangsung sempurna: $\\text{AgNO}_3(aq) \\rightarrow \\text{Ag}^+(aq) + \\text{NO}_3^-(aq)$. Endapan perak murni melapisi permukaan sendok besi di katode.',
+        '',
+        '## 2. Perbandingan Sel Volta dan Sel Elektrolisis',
+        '',
+        '| Aspek Perbedaan | Sel Volta | Sel Elektrolisis |',
+        '| :--- | :--- | :--- |',
+        '| Perubahan Energi | Energi kimia $\\rightarrow$ energi listrik | Energi listrik $\\rightarrow$ energi kimia |',
+        '| Kespontanan Reaksi | Spontan ($\\Delta G < 0$, $E^\\circ_{\\text{sel}} > 0$) | Tidak spontan ($\\Delta G > 0$, $E^\\circ_{\\text{sel}} < 0$) |',
+        '| Reaksi di Elektroda | Katode (+): Reduksi<br>Anode (–): Oksidasi | Katode (–): Reduksi<br>Anode (+): Oksidasi |',
+        '| Contoh Reaksi Total | $\\text{Zn}(s) + \\text{Cu}^{2+}(aq) \\rightarrow \\text{Zn}^{2+}(aq) + \\text{Cu}(s)$ | $2\\text{Cu}^{2+}(aq) + 2\\text{H}_2\\text{O}(l) \\rightarrow 2\\text{Cu}(s) + 4\\text{H}^+(aq) + \\text{O}_2(g)$ |',
+        '',
+        '## 3. Hukum Faraday I & II',
+        '',
+        'Massa zat ($m$) yang dihasilkan pada elektroda sebanding dengan jumlah muatan listrik ($Q = i \\times t$) dan massa ekuivalen zat ($w = \\frac{Ar}{e}$):',
+        '',
+        '$$m = \\frac{w \\times i \\times t}{96.500} = \\frac{Ar \\times i \\times t}{e \\times 96.500}$$',
+        '',
+        'Keterangan variabel:',
+        '1. $m$ = massa endapan zat yang dihasilkan ($\\text{gram}$)',
+        '2. $i$ = kuat arus listrik ($\\text{Ampere}$) dan $t$ = waktu elektrolisis ($\\text{detik}$)',
+        '3. $Ar$ = massa atom relatif unsur dan $e$ = jumlah mol elektron per $1\\text{ mol}$ zat',
+        '4. $1\\text{ Faraday (F)} = 1\\text{ mol } e^- = 96.500\\text{ Coulomb}$',
+        '',
+        '## 4. Simulasi Kode Perhitungan Hukum Faraday (Python)',
+        '',
+        'Berikut adalah contoh fungsi `hitung_massa_elektrolisis()` dengan baris kode panjang yang otomatis terbungkus rapi agar terbaca utuh di halaman PDF:',
+        '',
+        '```python',
+        'def hitung_massa_elektrolisis(nama_zat: str, ar: float, valensi_e: int, arus_ampere: float, waktu_detik: float) -> dict:',
+        '    """Menghitung mol elektron (Faraday), massa endapan logam (gram), dan volume gas STP (liter) pada sel elektrolisis."""',
+        '    KONSTANTA_FARADAY = 96500.0',
+        '    mol_elektron = (arus_ampere * waktu_detik) / KONSTANTA_FARADAY',
+        '    massa_ekuivalen = ar / valensi_e',
+        '    massa_gram = massa_ekuivalen * mol_elektron',
+        '    return {"zat": nama_zat, "faraday": round(mol_elektron, 4), "massa_gram": round(massa_gram, 4)}',
+        '',
+        '# Contoh: Elektrolisis larutan CuSO4 dengan arus 10 A selama 965 detik (Ar Cu = 63.5, e = 2)',
+        'hasil = hitung_massa_elektrolisis("Tembaga (Cu)", ar=63.5, valensi_e=2, arus_ampere=10.0, waktu_detik=965.0)',
+        'print(f"Hasil Elektrolisis {hasil[\'zat\']}: {hasil[\'massa_gram\']} gram ({hasil[\'faraday\']} F)")',
+        '```'
+      ].join('\n');
+
+      // ----------------------------------------------------------------------
+      // 2. DOM REFERENCES & APPLICATION STATE
+      // ----------------------------------------------------------------------
+      const markdownInput = document.getElementById('markdown-input');
+      const paperSheet = document.getElementById('paper-sheet');
+      const fileInput = document.getElementById('file-input');
+      const dropZone = document.getElementById('drop-zone');
+      const activeFilenameLabel = document.getElementById('active-filename-label');
+      const dynamicPageStyle = document.getElementById('dynamic-page-style');
+      const paperBadge = document.getElementById('paper-badge');
+
+      // Controls
+      const btnUpload = document.getElementById('btn-upload');
+      const btnSample = document.getElementById('btn-sample');
+      const btnClear = document.getElementById('btn-clear');
+      const btnPrintPdf = document.getElementById('btn-print-pdf');
+      const btnDownloadPdf = document.getElementById('btn-download-pdf');
+      const btnDownloadText = document.getElementById('btn-download-text');
+
+      const optPaperSize = document.getElementById('opt-paper-size');
+      const optOrientation = document.getElementById('opt-orientation');
+      const optMargin = document.getElementById('opt-margin');
+      const optFontFamily = document.getElementById('opt-font-family');
+      const optFontSize = document.getElementById('opt-font-size');
+      const btnAlignLeft = document.getElementById('btn-align-left');
+      const btnAlignJustify = document.getElementById('btn-align-justify');
+
+      // Mobile Tabs
+      const tabEditor = document.getElementById('tab-editor');
+      const tabPreview = document.getElementById('tab-preview');
+      const editorPane = document.getElementById('editor-pane');
+      const previewPane = document.getElementById('preview-pane');
+
+      // Live Stats
+      const statChars = document.getElementById('stat-chars');
+      const statWords = document.getElementById('stat-words');
+      const statMath = document.getElementById('stat-math');
+      const statTables = document.getElementById('stat-tables');
+      const statCode = document.getElementById('stat-code');
+
+      let currentBaseFilename = 'contoh-kimia-kode';
+      let renderDebounceTimer = null;
+
+      // ----------------------------------------------------------------------
+      // 3. NON-BLOCKING TOAST NOTIFICATION SYSTEM
+      // ----------------------------------------------------------------------
+      function showToast(message, type) {
+        const container = document.getElementById('toast-container');
+        const toast = document.createElement('div');
+        const colorMap = {
+          success: 'bg-slate-900 text-white border-emerald-500',
+          info: 'bg-slate-900 text-white border-blue-500',
+          warning: 'bg-amber-950 text-amber-50 border-amber-500',
+          error: 'bg-rose-950 text-rose-50 border-rose-500'
+        };
+        const styleClass = colorMap[type] || colorMap.info;
+
+        toast.className = 'pointer-events-auto flex items-center gap-2.5 px-4 py-3 rounded-xl border-l-4 shadow-xl text-xs sm:text-sm font-medium transition-all duration-300 transform translate-y-2 opacity-0 ' + styleClass;
+        toast.textContent = message;
+        container.appendChild(toast);
+
+        requestAnimationFrame(function () {
+          toast.classList.remove('translate-y-2', 'opacity-0');
+        });
+
+        setTimeout(function () {
+          toast.classList.add('translate-y-2', 'opacity-0');
+          setTimeout(function () {
+            if (toast.parentNode) {
+              toast.parentNode.removeChild(toast);
+            }
+          }, 300);
+        }, 3200);
+      }
+
+      // ----------------------------------------------------------------------
+      // 4. MARKDOWN + LATEX + CODE PROTECTION & RENDERING PIPELINE
+      // ----------------------------------------------------------------------
+      function escapeHtml(str) {
+        return str
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function renderKaTeXSafe(tex, displayMode) {
+        if (typeof window.katex === 'undefined') {
+          return '<code>' + escapeHtml(tex) + '</code>';
+        }
+        try {
+          return window.katex.renderToString(tex.trim(), {
+            displayMode: displayMode,
+            throwOnError: false,
+            strict: false,
+            trust: true
+          });
+        } catch (err) {
+          return '<code class="text-rose-600">' + escapeHtml(tex) + '</code>';
+        }
+      }
+
+      function compileMarkdownDocument(rawMd) {
+        const fencedBlocks = [];
+        const inlineCodes = [];
+        const displayMaths = [];
+        const inlineMaths = [];
+
+        let text = rawMd.replace(/\r\n/g, '\n');
+
+        // Step 1: Protect fenced code blocks (```...``` or ~~~...~~~) so $ inside code is untouched
+        text = text.replace(/(^|\n)(`{3,}|~{3,})([^\n]*)\n([\s\S]*?)\n\2[ \t]*(?=\n|$)/g, function (match, prefix, fence, lang, codeBody) {
+          const idx = fencedBlocks.length;
+          fencedBlocks.push(prefix + fence + lang + '\n' + codeBody + '\n' + fence);
+          return prefix + '@@FENCEDBLOCK' + idx + '@@';
+        });
+
+        // Step 2: Protect inline code (`...`) so $ inside inline code is untouched
+        text = text.replace(/(`+)([^`\n]|[^`\n][\s\S]*?[^`\n])\1(?!`)/g, function (match) {
+          const idx = inlineCodes.length;
+          inlineCodes.push(match);
+          return '@@INLINECODE' + idx + '@@';
+        });
+
+        // Step 3: Extract display math $$...$$ and \[...\] before marked.parse()
+        text = text.replace(/\$\$([\s\S]+?)\$\$/g, function (match, expr) {
+          const idx = displayMaths.length;
+          displayMaths.push(expr);
+          return '@@DISPLAYMATH' + idx + '@@';
+        });
+
+        text = text.replace(/\\\[([\s\S]+?)\\\]/g, function (match, expr) {
+          const idx = displayMaths.length;
+          displayMaths.push(expr);
+          return '@@DISPLAYMATH' + idx + '@@';
+        });
+
+        // Step 4: Extract inline math \(...\) and $...$ before marked.parse()
+        // Prevents marked.js from turning underscores (_) or asterisks (*) in LaTeX into <em> tags
+        text = text.replace(/\\\(([\s\S]+?)\\\)/g, function (match, expr) {
+          const idx = inlineMaths.length;
+          inlineMaths.push(expr);
+          return '@@INLINEMATH' + idx + '@@';
+        });
+
+        text = text.replace(/(^|[^\\])\$(?!\s)((?:\\.|[^\\\n$])+?)(?<!\s)\$(?!\d)/g, function (match, lead, expr) {
+          const idx = inlineMaths.length;
+          inlineMaths.push(expr);
+          return lead + '@@INLINEMATH' + idx + '@@';
+        });
+
+        // Step 5: Restore fenced code blocks & inline code so marked parses them natively
+        text = text.replace(/@@FENCEDBLOCK(\d+)@@/g, function (match, idxStr) {
+          return fencedBlocks[Number(idxStr)];
+        });
+
+        text = text.replace(/@@INLINECODE(\d+)@@/g, function (match, idxStr) {
+          return inlineCodes[Number(idxStr)];
+        });
+
+        // Step 6: Parse Markdown with GFM enabled (supports tables, <br>, task lists, strikethrough)
+        let html = '';
+        if (typeof window.marked !== 'undefined') {
+          html = window.marked.parse(text, {
+            gfm: true,
+            breaks: false
+          });
+        } else {
+          html = '<pre>' + escapeHtml(text) + '</pre>';
+        }
+
+        // Step 7: Restore display math (unwrapping standalone <p> wrapper for valid block HTML)
+        html = html.replace(/<p>\s*@@DISPLAYMATH(\d+)@@\s*<\/p>/g, function (match, idxStr) {
+          const rendered = renderKaTeXSafe(displayMaths[Number(idxStr)], true);
+          return '<div class="katex-block">' + rendered + '</div>';
+        });
+
+        html = html.replace(/@@DISPLAYMATH(\d+)@@/g, function (match, idxStr) {
+          const rendered = renderKaTeXSafe(displayMaths[Number(idxStr)], true);
+          return '<div class="katex-block">' + rendered + '</div>';
+        });
+
+        // Restore inline math
+        html = html.replace(/@@INLINEMATH(\d+)@@/g, function (match, idxStr) {
+          return renderKaTeXSafe(inlineMaths[Number(idxStr)], false);
+        });
+
+        return {
+          html: html,
+          mathCount: displayMaths.length + inlineMaths.length,
+          codeCount: fencedBlocks.length
+        };
+      }
+
+      function updatePreviewAndStats() {
+        const rawMd = markdownInput.value || '';
+        const result = compileMarkdownDocument(rawMd);
+
+        if (!rawMd.trim()) {
+          paperSheet.innerHTML = '<div class="text-center py-16 text-slate-400"><p class="font-semibold text-base mb-1">Dokumen masih kosong</p><p class="text-xs">Ketik Markdown di panel kiri atau unggah file <code>.md</code> untuk melihat pratinjau PDF.</p></div>';
+        } else {
+          paperSheet.innerHTML = result.html;
+        }
+
+        // Enhance all <pre><code> blocks with header badge + highlight.js syntax highlighting
+        const preElements = paperSheet.querySelectorAll('pre');
+        preElements.forEach(function (preEl) {
+          const codeEl = preEl.querySelector('code');
+          if (!codeEl) return;
+
+          // Detect language class from marked (e.g. "language-python")
+          let langLabel = 'CODE';
+          codeEl.classList.forEach(function (cls) {
+            if (cls.indexOf('language-') === 0) {
+              langLabel = cls.replace('language-', '').toUpperCase();
+            }
+          });
+
+          if (typeof window.hljs !== 'undefined') {
+            try {
+              window.hljs.highlightElement(codeEl);
+            } catch (e) {
+              // Ignore unknown language warning
+            }
+          }
+
+          // Wrap <pre> with clean labeled code card if not already wrapped
+          if (!preEl.parentElement.classList.contains('code-block-wrapper')) {
+            const wrapper = document.createElement('div');
+            wrapper.className = 'code-block-wrapper';
+
+            const header = document.createElement('div');
+            header.className = 'code-block-header';
+            header.innerHTML = '<span>' + escapeHtml(langLabel) + '</span><span>SOURCE CODE</span>';
+
+            preEl.parentNode.insertBefore(wrapper, preEl);
+            wrapper.appendChild(header);
+            wrapper.appendChild(preEl);
+          }
+        });
+
+        // Update Live Document Statistics
+        const trimmed = rawMd.trim();
+        const wordCount = trimmed ? trimmed.split(/\s+/).length : 0;
+        const tableCount = paperSheet.querySelectorAll('table').length;
+
+        statChars.textContent = rawMd.length.toLocaleString('id-ID');
+        statWords.textContent = wordCount.toLocaleString('id-ID');
+        statMath.textContent = result.mathCount.toLocaleString('id-ID');
+        statTables.textContent = tableCount.toLocaleString('id-ID');
+        statCode.textContent = result.codeCount.toLocaleString('id-ID');
+      }
+
+      // ----------------------------------------------------------------------
+      // 5. DOCUMENT & PAPER SETTINGS SYNCHRONIZATION
+      // ----------------------------------------------------------------------
+      function applyDocumentSettings() {
+        const paperSize = optPaperSize.value;       // A4 | Letter
+        const orientation = optOrientation.value;   // portrait | landscape
+        const marginMm = optMargin.value;           // 20 | 12 | 25
+        const fontChoice = optFontFamily.value;     // sans | serif
+        const fontSize = optFontSize.value;         // 10pt | 11pt | 12pt
+
+        // Calculate physical page dimensions in mm
+        let widthMm = 210;
+        let heightMm = 297;
+        if (paperSize === 'Letter') {
+          widthMm = 215.9;
+          heightMm = 279.4;
+        }
+
+        if (orientation === 'landscape') {
+          const temp = widthMm;
+          widthMm = heightMm;
+          heightMm = temp;
+        }
+
+        const root = document.documentElement;
+        root.style.setProperty('--paper-width', widthMm + 'mm');
+        root.style.setProperty('--paper-min-height', heightMm + 'mm');
+        root.style.setProperty('--paper-padding', marginMm + 'mm');
+        root.style.setProperty('--doc-font-size', fontSize);
+
+        if (fontChoice === 'serif') {
+          root.style.setProperty('--doc-font-family', "'Merriweather', Georgia, serif");
+        } else {
+          root.style.setProperty('--doc-font-family', "'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif");
+        }
+
+        // Update dynamic @page CSS rule for browser native vector PDF printing
+        dynamicPageStyle.textContent = '@page { size: ' + paperSize + ' ' + orientation + '; margin: ' + marginMm + 'mm; }';
+
+        // Update preview status badge
+        const orientText = orientation === 'portrait' ? 'Portrait' : 'Landscape';
+        paperBadge.textContent = paperSize + ' • ' + orientText + ' • Margin ' + marginMm + 'mm';
+      }
+
+      function setAlignment(alignMode) {
+        const root = document.documentElement;
+        root.style.setProperty('--doc-text-align', alignMode);
+
+        if (alignMode === 'justify') {
+          btnAlignJustify.className = 'px-2.5 py-1 rounded-md font-semibold bg-white text-blue-700 shadow-2xs transition cursor-pointer';
+          btnAlignLeft.className = 'px-2.5 py-1 rounded-md font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        } else {
+          btnAlignLeft.className = 'px-2.5 py-1 rounded-md font-semibold bg-white text-blue-700 shadow-2xs transition cursor-pointer';
+          btnAlignJustify.className = 'px-2.5 py-1 rounded-md font-semibold text-slate-600 hover:text-slate-900 transition cursor-pointer';
+        }
+      }
+
+      // ----------------------------------------------------------------------
+      // 6. FILE UPLOAD & DRAG-AND-DROP HANDLERS
+      // ----------------------------------------------------------------------
+      function setActiveFilename(fullFilename) {
+        const cleanName = fullFilename.replace(/\.(md|markdown|txt)$/i, '') || 'dokumen-markdown';
+        currentBaseFilename = cleanName;
+        activeFilenameLabel.innerHTML = 'File aktif: <span class="font-semibold text-slate-700">' + escapeHtml(fullFilename) + '</span>';
+      }
+
+      function handleMarkdownFile(file) {
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = function (event) {
+          markdownInput.value = event.target.result;
+          setActiveFilename(file.name);
+          updatePreviewAndStats();
+          showToast('Berhasil memuat file "' + file.name + '"', 'success');
+
+          // On mobile screens, switch automatically to Preview tab so user immediately sees rendered PDF
+          if (window.innerWidth < 1024) {
+            switchMobileTab('preview');
+          }
+        };
+        reader.onerror = function () {
+          showToast('Gagal membaca file. Pastikan file berupa teks/Markdown.', 'error');
+        };
+        reader.readAsText(file, 'UTF-8');
+      }
+
+      btnUpload.addEventListener('click', function () {
+        fileInput.click();
+      });
+
+      fileInput.addEventListener('change', function (e) {
+        if (e.target.files && e.target.files[0]) {
+          handleMarkdownFile(e.target.files[0]);
+          fileInput.value = '';
+        }
+      });
+
+      // Drag and drop on editor or window
+      ['dragenter', 'dragover'].forEach(function (evtName) {
+        dropZone.addEventListener(evtName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.add('drag-active');
+        });
+      });
+
+      ['dragleave', 'drop'].forEach(function (evtName) {
+        dropZone.addEventListener(evtName, function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          dropZone.classList.remove('drag-active');
+        });
+      });
+
+      dropZone.addEventListener('drop', function (e) {
+        if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+          handleMarkdownFile(e.dataTransfer.files[0]);
+        }
+      });
+
+      // ----------------------------------------------------------------------
+      // 7. PDF EXPORT ACTIONS (Vector Print & Direct html2pdf Download)
+      // ----------------------------------------------------------------------
+      btnPrintPdf.addEventListener('click', function () {
+        if (!markdownInput.value.trim()) {
+          showToast('Isi dokumen masih kosong. Silakan ketik atau unggah file .md terlebih dahulu.', 'warning');
+          return;
+        }
+        applyDocumentSettings();
+        const originalDocTitle = document.title;
+        document.title = currentBaseFilename;
+        showToast('Membuka dialog Cetak / Simpan sebagai PDF (Vector Tajam)...', 'info');
+
+        setTimeout(function () {
+          window.print();
+          document.title = originalDocTitle;
+        }, 180);
+      });
+
+      btnDownloadPdf.addEventListener('click', function () {
+        if (!markdownInput.value.trim()) {
+          showToast('Isi dokumen masih kosong. Silakan ketik atau unggah file .md terlebih dahulu.', 'warning');
+          return;
+        }
+
+        if (typeof window.html2pdf === 'undefined') {
+          showToast('Library html2pdf belum siap, gunakan tombol "Simpan / Cetak PDF".', 'error');
+          return;
+        }
+
+        const marginVal = Number(optMargin.value);
+        const paperFormat = optPaperSize.value.toLowerCase();
+        const orientVal = optOrientation.value;
+        const outputFilename = currentBaseFilename + '.pdf';
+
+        btnDownloadPdf.disabled = true;
+        btnDownloadText.textContent = 'Merender PDF...';
+        showToast('Sedang merender "' + outputFilename + '" (High-DPI)...', 'info');
+
+        // Temporarily remove outer padding/border/shadow on #paper-sheet because html2pdf adds its own PDF margins
+        const prevPadding = paperSheet.style.padding;
+        const prevBorder = paperSheet.style.border;
+        const prevShadow = paperSheet.style.boxShadow;
+        const prevWidth = paperSheet.style.width;
+
+        paperSheet.style.padding = '0';
+        paperSheet.style.border = 'none';
+        paperSheet.style.boxShadow = 'none';
+        paperSheet.style.width = '100%';
+
+        const pdfOptions = {
+          margin: [marginVal, marginVal, marginVal, marginVal],
+          filename: outputFilename,
+          image: { type: 'jpeg', quality: 0.98 },
+          html2canvas: {
+            scale: 2,
+            useCORS: true,
+            letterRendering: true,
+            logging: false
+          },
+          jsPDF: {
+            unit: 'mm',
+            format: paperFormat,
+            orientation: orientVal
+          },
+          pagebreak: {
+            mode: ['avoid-all', 'css', 'legacy']
+          }
+        };
+
+        window.html2pdf()
+          .set(pdfOptions)
+          .from(paperSheet)
+          .save()
+          .then(function () {
+            paperSheet.style.padding = prevPadding;
+            paperSheet.style.border = prevBorder;
+            paperSheet.style.boxShadow = prevShadow;
+            paperSheet.style.width = prevWidth;
+            btnDownloadPdf.disabled = false;
+            btnDownloadText.textContent = 'Unduh .PDF Langsung';
+            showToast('File "' + outputFilename + '" berhasil diunduh!', 'success');
+          })
+          .catch(function () {
+            paperSheet.style.padding = prevPadding;
+            paperSheet.style.border = prevBorder;
+            paperSheet.style.boxShadow = prevShadow;
+            paperSheet.style.width = prevWidth;
+            btnDownloadPdf.disabled = false;
+            btnDownloadText.textContent = 'Unduh .PDF Langsung';
+            showToast('Terjadi kendala saat membuat PDF langsung. Gunakan "Simpan / Cetak PDF".', 'error');
+          });
+      });
+
+      // ----------------------------------------------------------------------
+      // 8. MOBILE TAB SWITCHER & UI EVENT LISTENERS
+      // ----------------------------------------------------------------------
+      function switchMobileTab(target) {
+        if (target === 'preview') {
+          editorPane.classList.add('hidden');
+          editorPane.classList.remove('flex');
+          previewPane.classList.remove('hidden');
+          previewPane.classList.add('flex');
+
+          tabPreview.className = 'flex-1 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-xs transition cursor-pointer';
+          tabEditor.className = 'flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer';
+        } else {
+          previewPane.classList.add('hidden');
+          previewPane.classList.remove('flex');
+          editorPane.classList.remove('hidden');
+          editorPane.classList.add('flex');
+
+          tabEditor.className = 'flex-1 py-2 rounded-xl text-xs font-bold bg-blue-600 text-white shadow-xs transition cursor-pointer';
+          tabPreview.className = 'flex-1 py-2 rounded-xl text-xs font-bold bg-slate-100 text-slate-700 hover:bg-slate-200 transition cursor-pointer';
+        }
+      }
+
+      tabEditor.addEventListener('click', function () {
+        switchMobileTab('editor');
+      });
+
+      tabPreview.addEventListener('click', function () {
+        switchMobileTab('preview');
+      });
+
+      markdownInput.addEventListener('input', function () {
+        clearTimeout(renderDebounceTimer);
+        renderDebounceTimer = setTimeout(updatePreviewAndStats, 120);
+      });
+
+      btnSample.addEventListener('click', function () {
+        markdownInput.value = SAMPLE_MARKDOWN;
+        setActiveFilename('contoh-kimia-kode.md');
+        updatePreviewAndStats();
+        showToast('Contoh dokumen Kimia & Kode berhasil dimuat.', 'info');
+      });
+
+      btnClear.addEventListener('click', function () {
+        markdownInput.value = '';
+        setActiveFilename('dokumen-baru.md');
+        updatePreviewAndStats();
+        markdownInput.focus();
+        showToast('Editor telah dibersihkan.', 'info');
+      });
+
+      [optPaperSize, optOrientation, optMargin, optFontFamily, optFontSize].forEach(function (el) {
+        el.addEventListener('change', applyDocumentSettings);
+      });
+
+      btnAlignLeft.addEventListener('click', function () {
+        setAlignment('left');
+      });
+
+      btnAlignJustify.addEventListener('click', function () {
+        setAlignment('justify');
+      });
+
+      // Initialize Application on Load
+      window.addEventListener('DOMContentLoaded', function () {
+        markdownInput.value = SAMPLE_MARKDOWN;
+        applyDocumentSettings();
+        setAlignment('left');
+        updatePreviewAndStats();
+      });
+    })();
+  </script>
+</body>
+</html>
